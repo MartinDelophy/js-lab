@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <title>大文件上传</title>
+
+</head>
+
+<body>
+    <input type="file" id="file" />
+    <button id="upload">上传</button>
+    <span id="output">等待中</span>
+    <img id="slice_img" src="" alt="">
+    <script>
+        var map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+        //字节流转译
+        function cc2str(arr/*:Array<number>*/)/*:string*/ {
+            var o = "";
+            for (var i = 0; i != arr.length; ++i) o += String.fromCharCode(arr[i]);
+            return o;
+        }
+        //decode
+        function b64_decode(input/*:string*/)/*:string*/ {
+            var o = "";
+            var c1 = 0, c2 = 0, c3 = 0, e1 = 0, e2 = 0, e3 = 0, e4 = 0;
+            input = input.replace(/[^\w\+\/\=]/g, "");
+            for (var i = 0; i < input.length;) {
+                e1 = map.indexOf(input.charAt(i++));
+                e2 = map.indexOf(input.charAt(i++));
+                c1 = (e1 << 2) | (e2 >> 4);
+                o += String.fromCharCode(c1);
+
+                e3 = map.indexOf(input.charAt(i++));
+                c2 = ((e2 & 15) << 4) | (e3 >> 2);
+                if (e3 !== 64) { o += String.fromCharCode(c2); }
+
+                e4 = map.indexOf(input.charAt(i++));
+                c3 = ((e3 & 3) << 6) | e4;
+                if (e4 !== 64) { o += String.fromCharCode(c3); }
+            }
+            return o;
+        }
+        var page = {
+            init: function () {
+                var that = this;
+
+                document.querySelector("#upload").addEventListener("click", function () {
+                    that.upload()
+                })
+            },
+
+            upload: function () {
+                var file = document.querySelector("#file").files[0],  //文件对象
+                    name = file.name,        //文件名
+                    size = file.size,        //总大小
+                    succeed = 0;
+
+                var shardSize = 128 * 1024,    //以256k为一个分片
+                    shardCount = Math.ceil(size / shardSize);  //总片数
+
+                // for (var i = 0; i < shardCount; ++i) {
+                //     //计算每一片的起始与结束位置
+                //     var start = i * shardSize,
+                //         end = Math.min(size, start + shardSize);
+                //     //构造一个表单，FormData是HTML5新增的
+                //     var form = new FormData();
+                //     form.append("data", file.slice(start, end));  //slice方法用于切出文件的一部分
+                //     form.append("name", name);
+                //     form.append("total", shardCount);  //总片数
+                //     form.append("index", i + 1);        //当前是第几片               
+                // }
+                //测试1 : 是否file 是可切的
+                var newFile = file.slice(0, shardSize);
+                var reader = new FileReader();
+                reader.readAsDataURL(newFile);//发起异步请求
+                reader.onload = function () {
+                    //读取完成后，数据保存在对象的result属性中
+                    console.log(b64_decode(this.result))
+
+                    //  document.querySelector("#slice_img").src = this.result
+                }
+                //答：可切
+                //测试2 ：是否 能通过 读取字节流能否解析文件
+                var reader = new FileReader();
+                reader.readAsArrayBuffer(newFile);//发起异步请求
+                reader.onload = function () {
+                    //读取完成后，数据保存在对象的result属性中
+                    console.log(this.result)
+                    var chunkSize = 4;
+                    var char = "";
+                    var int8a = new Int8Array(this.result);
+                    console.log(int8a)
+                    for (var i = 0; i < int8a.byteLength / 4; i++) {
+
+                        let temp = [int8a[chunkSize * i], int8a[chunkSize * i + 1], int8a[chunkSize * i + 2], int8a[chunkSize * i + 3]]
+                        char += cc2str(temp)
+
+                    }
+                    console.log(char)
+                }
+                //答，道理可行，还需要一定的方式进行解码
+            }
+        };
+        (function () {
+            page.init(); //初始化
+        })();
+    </script>
+</body>
+
+</html>
